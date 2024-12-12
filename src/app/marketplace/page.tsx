@@ -90,7 +90,7 @@ const Closet: React.FC = () => {
 
   // Filter the assets based on the price range
   const filteredAssets = assets.filter((asset) => {
-    const price = parseFloat(asset.price);
+    const price = parseFloat(Number(asset.price) / 1000000);
     const min = minPrice ? parseFloat(minPrice) : 0;
     const max = maxPrice ? parseFloat(maxPrice) : Infinity;
     return (
