@@ -27,14 +27,13 @@ exports.loginUser =async (req,res)=>{
 
 exports.registerUser = async(req,res)=>{
   const { username, password, email, solanaWallet } = req.body;
-  var user;
   try {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    user = new User({ username, password: hashedPassword, email, solanaWallet, role: 'designer' });
+    const user = new User({ username, password: hashedPassword, email, solanaWallet, role: 'designer' });
     await user.save();
     res.status(201).json(user);
   } catch (error) {
-    res.status(400).json({ message:error.message });
+    res.status(400).json({ message: error.message });
   }
 }

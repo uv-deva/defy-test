@@ -14,7 +14,6 @@ export default async function handler(req, res) {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     const user = new User({ username, password: hashedPassword, role: 'designer' });
-    console.log(user.getIndexes())
     await user.save();
     res.status(201).json(user);
   } catch (error) {
