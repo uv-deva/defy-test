@@ -24,6 +24,7 @@ export interface NFTDetail {
   name: string;
   symbol: string;
   image?: string;
+  collection?: string;
   group?: string;
   mint: string;
   seller: string;
@@ -40,26 +41,12 @@ const Closet: React.FC = () => {
   const [assets, setAssets] = useState<NFTDetail[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [minPrice, setMinPrice] = useState<string>(""); // State for min price
+  const [maxPrice, setMaxPrice] = useState<string>(""); // State for max price
+  const [selectedCollection, setSelectedCollection] = useState<string>(""); // State for collection filter
+
   const wallet = useAnchorWallet();
   const { connection } = useConnection();
-
-  useEffect(() => {
-    const storedWalletAddress = sessionStorage.getItem("walletAddress");
-    const storedAssets = sessionStorage.getItem("assets");
-
-    if (storedWalletAddress) {
-      setWalletAddress(storedWalletAddress);
-    }
-
-    if (storedAssets) {
-      setAssets(JSON.parse(storedAssets));
-    }
-    fetchNFTs();
-  }, []);
-
-  // useEffect(() => {
-  //   fetchAssets();
-  // }, [publicKey]);
 
   useEffect(() => {
     fetchNFTs();
@@ -79,9 +66,6 @@ const Closet: React.FC = () => {
 
     try {
       const listings = await getNFTList(provider, connection);
-      // const mint = new PublicKey(listings[0].mint);
-      // const detail = await getNFTDetail(mint, connection);
-      console.log(listings);
       const promises = listings
         .filter((list) => list.isActive)
         .map((list) => {
@@ -95,24 +79,70 @@ const Closet: React.FC = () => {
           );
         });
       const detailedListings = await Promise.all(promises);
-      console.log(detailedListings);
-      //return detailedListings;
-
       setAssets(detailedListings);
-    } catch (errr) {
-      console.log(errr);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load NFTs.");
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Filter the assets based on the price range
+  const filteredAssets = assets.filter((asset) => {
+    const price = parseFloat(Number(asset.price) / 1000000);
+    const min = minPrice ? parseFloat(minPrice) : 0;
+    const max = maxPrice ? parseFloat(maxPrice) : Infinity;
+    return (
+      price >= min &&
+      price <= max &&
+      (selectedCollection === "" || asset.collection === selectedCollection)
+    );
+  });
+
+  const uniqueCollections = Array.from(
+    new Set(assets.map((asset) => asset.collection).filter((collection) => collection))
+  );
   return (
     <div className="p-4 pt-20 bg-white dark:bg-black min-h-screen">
       <h1 className="text-3xl font-bold mb-4 text-center text-black dark:text-white">
-        NFTs on sale
+        NFTs on Sale
       </h1>
 
       {error && <div className="text-red-500 text-center mb-4">{error}</div>}
+
+      {/* Price Filter Inputs */}
+      <div className="flex justify-end mb-6 gap-4">
+        <input
+          type="number"
+          placeholder="Min Price"
+          value={minPrice}
+          onChange={(e) => setMinPrice(e.target.value)}
+          className="p-2 border rounded"
+          style={{ width: '125px' }}
+        />
+        <input
+          type="number"
+          placeholder="Max Price"
+          value={maxPrice}
+          onChange={(e) => setMaxPrice(e.target.value)}
+          className="p-2 border rounded"
+          style={{ width: '125px' }}
+        />
+        {/* Collection Filter Dropdown */}
+        <select
+          value={selectedCollection}
+          onChange={(e) => setSelectedCollection(e.target.value)}
+          className="p-2 border rounded"
+        >
+          <option value="">All Collections</option>
+          {uniqueCollections.map((collection) => (
+            <option key={collection} value={collection || ""}>
+              {trimAddress(collection || "")}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -124,9 +154,9 @@ const Closet: React.FC = () => {
             </Card>
           ))}
         </div>
-      ) : assets.length > 0 ? (
+      ) : filteredAssets.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {assets.map((asset: NFTDetail) => (
+          {filteredAssets.map((asset: NFTDetail) => (
             <div
               key={asset.mint}
               className="relative p-4 border rounded shadow hover:shadow-lg transition-transform transform hover:scale-105 cursor-pointer bg-white dark:bg-black group"
@@ -153,8 +183,7 @@ const Closet: React.FC = () => {
                   target="_blank"
                   className="hover:text-gray-300 flex items-center"
                 >
-                  {trimAddress(asset.mint)}{" "}
-                  <FaExternalLinkAlt className="ml-1" />
+                  {trimAddress(asset.mint)} <FaExternalLinkAlt className="ml-1" />
                 </Link>
                 {asset.group && (
                   <Link
@@ -162,8 +191,7 @@ const Closet: React.FC = () => {
                     target="_blank"
                     className="hover:text-gray-300 flex items-center"
                   >
-                    Group: {trimAddress(asset.group)}{" "}
-                    <FaExternalLinkAlt className="ml-1" />
+                    Group: {trimAddress(asset.group)} <FaExternalLinkAlt className="ml-1" />
                   </Link>
                 )}
               </div>

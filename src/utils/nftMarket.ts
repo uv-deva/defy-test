@@ -387,6 +387,7 @@ export async function getNFTDetail(
     TOKEN_2022_PROGRAM_ID
   );
   let image_url = "";
+  let collection = "";
   console.log(metadata);
   if (metadata?.uri.includes("jpeg" || "png" || "jpg"))
     image_url = metadata?.uri || "";
@@ -395,6 +396,7 @@ export async function getNFTDetail(
     if (response.ok) {
       const res_data = await response.json();
       image_url = res_data.image;
+      collection = res_data.collection;
       console.log(res_data);
     }
   }
@@ -402,6 +404,7 @@ export async function getNFTDetail(
     name: metadata?.name || "",
     symbol: metadata?.symbol || "",
     mint: mint.toString(),
+    collection: collection,
     group: metadata?.additionalMetadata[0][1],
     image: image_url,
     seller: seller,

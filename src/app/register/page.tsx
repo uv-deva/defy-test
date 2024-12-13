@@ -24,8 +24,23 @@ const Register = () => {
       if (response.status === 201) {
         router.push('/login');
       }
-    } catch (err) {
-      setError('Registration failed. Please try again.');
+    } catch (err:any) {
+      if (err.response && err.response.data && err.response.data.message) {
+        const message = err.response.data.message;
+          if (message.includes('E11000')) {
+            if (message.includes('username')) {
+              setError(`Username "${username}" is already taken. Please choose another one.`);
+            } else if (message.includes('email')) {
+              setError(`Email "${email}" is already registered. Please use a different email.`);
+            } else {
+              setError('A duplicate entry exists. Please try again with different details.');
+            }
+        } else {
+          setError(message);
+        }
+      } else {
+        setError('Registration failed. Please try again.');
+      }
     }
   };
 
