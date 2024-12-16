@@ -342,9 +342,12 @@ export async function RemoveNFTList(
 
 export async function getNFTList(
   provider: anchor.AnchorProvider,
-  connection: Connection
+  connection: Connection,
+  minPrice: number,
+  maxPrice: number,
 ) {
   const program = await loadProgram(connection, provider);
+   try {
   const listingAccounts = await provider.connection.getProgramAccounts(
     programId,
     {
@@ -368,17 +371,33 @@ export async function getNFTList(
       price: listingData.price.toNumber(),
       mint: listingData.mint.toString(),
       isActive: listingData.isActive,
+      collection: listingData.collection?.toString()
     };
   });
   console.log(listings);
-  return listings;
+  const filteredListings = listings.filter((listing) => {
+    if (!listing.isActive) return false;
+
+    const price = listing.price / 1000000; // Convert to appropriate unit
+
+    const isMinPriceValid = minPrice !== null ? price >= minPrice : true;
+    const isMaxPriceValid = maxPrice !== null ? price <= maxPrice : true;
+
+    return isMinPriceValid && isMaxPriceValid;
+  });
+  return filteredListings;
+} catch (error) {
+  console.error("Error fetching NFTs:", error);
+  throw error;
+}
 }
 export async function getNFTDetail(
   mint: PublicKey,
   connection: Connection,
   seller: string,
   price: string,
-  listing: string
+  listing: string,
+  selectedCollection: string
 ) {
   const metadata = await getTokenMetadata(
     connection,
@@ -397,6 +416,9 @@ export async function getNFTDetail(
       const res_data = await response.json();
       image_url = res_data.image;
       collection = res_data.collection;
+      if (selectedCollection && collection !== selectedCollection) {
+        return null;
+      }
       console.log(res_data);
     }
   }

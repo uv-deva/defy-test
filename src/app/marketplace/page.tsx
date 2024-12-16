@@ -41,16 +41,20 @@ const Closet: React.FC = () => {
   const [assets, setAssets] = useState<NFTDetail[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [minPrice, setMinPrice] = useState<string>(""); // State for min price
-  const [maxPrice, setMaxPrice] = useState<string>(""); // State for max price
-  const [selectedCollection, setSelectedCollection] = useState<string>(""); // State for collection filter
-
+  const [collection, setCollection] = useState<NFTDetail[]>([]);
+  const [collectionStatus, setCollectionStatus] = useState<boolean>(false);
+  const [minPrice, setMinPrice] = useState<string>("");
+  const [maxPrice, setMaxPrice] = useState<string>("");
+  const [selectedCollection, setSelectedCollection] = useState<string>("");
+  const [minPriceValue, setMinPriceValue] = useState<string>("");
+  const [maxPriceValue, setMaxPriceValue] = useState<string>("");
+  const [selectedCollectionValue, setSelectedCollectionValue] = useState<string>("");
   const wallet = useAnchorWallet();
   const { connection } = useConnection();
 
   useEffect(() => {
     fetchNFTs();
-  }, [wallet]);
+  }, [wallet, minPrice, maxPrice, selectedCollection]);
 
   useEffect(() => {
     sessionStorage.setItem("walletAddress", walletAddress);
@@ -65,7 +69,11 @@ const Closet: React.FC = () => {
     const provider = new AnchorProvider(connection, wallet as Wallet, {});
 
     try {
-      const listings = await getNFTList(provider, connection);
+      const minPriceValue = minPrice ? parseFloat(minPrice) : null;
+      const maxPriceValue = maxPrice ? parseFloat(maxPrice) : null;
+      const selectedCollectionValue = selectedCollection || null;
+    
+      const listings = await getNFTList(provider, connection, minPriceValue, maxPriceValue);
       const promises = listings
         .filter((list) => list.isActive)
         .map((list) => {
@@ -75,11 +83,14 @@ const Closet: React.FC = () => {
             connection,
             list.seller,
             list.price,
-            list.pubkey
+            list.pubkey,
+            selectedCollectionValue
           );
         });
-      const detailedListings = await Promise.all(promises);
+      const detailedListings = (await Promise.all(promises)).filter((nft) => nft !== null);
       setAssets(detailedListings);
+      if(!collectionStatus) { setCollection(detailedListings); }
+      setCollectionStatus(true)
     } catch (err) {
       console.error(err);
       setError("Failed to load NFTs.");
@@ -88,20 +99,14 @@ const Closet: React.FC = () => {
     }
   };
 
-  // Filter the assets based on the price range
-  const filteredAssets = assets.filter((asset) => {
-    const price = parseFloat(Number(asset.price) / 1000000);
-    const min = minPrice ? parseFloat(minPrice) : 0;
-    const max = maxPrice ? parseFloat(maxPrice) : Infinity;
-    return (
-      price >= min &&
-      price <= max &&
-      (selectedCollection === "" || asset.collection === selectedCollection)
-    );
-  });
+  const applyFilters = () => {
+    setMinPrice(minPriceValue);
+    setMaxPrice(maxPriceValue);
+    setSelectedCollection(selectedCollectionValue);
+  };
 
   const uniqueCollections = Array.from(
-    new Set(assets.map((asset) => asset.collection).filter((collection) => collection))
+    new Set(collection.map((collection) => collection.collection).filter((collection) => collection))
   );
   return (
     <div className="p-4 pt-20 bg-white dark:bg-black min-h-screen">
@@ -111,28 +116,26 @@ const Closet: React.FC = () => {
 
       {error && <div className="text-red-500 text-center mb-4">{error}</div>}
 
-      {/* Price Filter Inputs */}
       <div className="flex justify-end mb-6 gap-4">
         <input
           type="number"
           placeholder="Min Price"
-          value={minPrice}
-          onChange={(e) => setMinPrice(e.target.value)}
+          value={minPriceValue}
+          onChange={(e) => setMinPriceValue(e.target.value)}
           className="p-2 border rounded"
           style={{ width: '125px' }}
         />
         <input
           type="number"
           placeholder="Max Price"
-          value={maxPrice}
-          onChange={(e) => setMaxPrice(e.target.value)}
+          value={maxPriceValue}
+          onChange={(e) => setMaxPriceValue(e.target.value)}
           className="p-2 border rounded"
           style={{ width: '125px' }}
         />
-        {/* Collection Filter Dropdown */}
         <select
-          value={selectedCollection}
-          onChange={(e) => setSelectedCollection(e.target.value)}
+          value={selectedCollectionValue}
+          onChange={(e) => setSelectedCollectionValue(e.target.value)}
           className="p-2 border rounded"
         >
           <option value="">All Collections</option>
@@ -142,6 +145,12 @@ const Closet: React.FC = () => {
             </option>
           ))}
         </select>
+        <button
+          onClick={applyFilters}
+          className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Apply
+        </button>
       </div>
 
       {isLoading ? (
@@ -154,9 +163,9 @@ const Closet: React.FC = () => {
             </Card>
           ))}
         </div>
-      ) : filteredAssets.length > 0 ? (
+      ) : assets.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredAssets.map((asset: NFTDetail) => (
+          {assets.map((asset) => (
             <div
               key={asset.mint}
               className="relative p-4 border rounded shadow hover:shadow-lg transition-transform transform hover:scale-105 cursor-pointer bg-white dark:bg-black group"
@@ -185,15 +194,6 @@ const Closet: React.FC = () => {
                 >
                   {trimAddress(asset.mint)} <FaExternalLinkAlt className="ml-1" />
                 </Link>
-                {asset.group && (
-                  <Link
-                    href={`https://solana.fm/address/${asset.group}`}
-                    target="_blank"
-                    className="hover:text-gray-300 flex items-center"
-                  >
-                    Group: {trimAddress(asset.group)} <FaExternalLinkAlt className="ml-1" />
-                  </Link>
-                )}
               </div>
             </div>
           ))}
